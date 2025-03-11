@@ -3,6 +3,14 @@ import User from "../models/UserModel.js";
 export const getUsers = async(req, res) => {
     try {
         const response = await User.findAll();
+        if (!response || response.length === 0) {
+            return res.status(404).json({
+                "statuscode": 404,
+                "message": "Data not found",
+                "data": null
+            });
+        }
+
         res.status(200).json({
             "statuscode": 200,
             "message": "Data found",
@@ -63,17 +71,45 @@ export const createUser = async(req, res) => {
     }
 }
 
-export const updateUser = async(req, res) => {
+import crypto from "crypto";
+
+export const updateUser = async (req, res) => {
     try {
-        await User.update(req.body,{
-            where:{
+        // Cek apakah user dengan ID yang diberikan ada
+        const user = await User.findByPk(req.params.id);
+        if (!user) {
+            return res.status(404).json({
+                "statuscode": 404,
+                "message": "User not found",
+                "data": null
+            });
+        }
+
+        // Jika ada perubahan password, enkripsi menggunakan MD5
+        if (req.body.password) {
+            req.body.password = crypto.createHash('md5').update(req.body.password).digest('hex');
+        }
+
+        // Lakukan update
+        const [updated] = await User.update(req.body, {
+            where: {
                 id: req.params.id
             }
         });
-        res.status(200).json({
+
+        if (updated === 0) {
+            return res.status(400).json({
+                "statuscode": 400,
+                "message": "User not updated",
+                "data": null
+            });
+        }
+
+        return res.status(200).json({
             "statuscode": 200,
-            "message": "User updated"
+            "message": "User updated successfully",
         });
+
     } catch (error) {
         res.status(500).json({
             "statuscode": 500,
@@ -81,7 +117,8 @@ export const updateUser = async(req, res) => {
             "error": error.message
         });
     }
-}
+};
+
 
 export const deleteUser = async(req, res) => {
     try {
