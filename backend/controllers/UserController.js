@@ -1,4 +1,10 @@
 import User from "../models/UserModel.js";
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+import dotenv from "dotenv";
+import crypto from "crypto";
+import { error } from "console";
+dotenv.config();
 
 export const getUsers = async(req, res) => {
     try {
@@ -55,9 +61,46 @@ export const getUserById = async(req, res) => {
     }
 }
 
-export const createUser = async(req, res) => {
+// export const createUser = async(req, res) => {
+//     try {
+//         await User.create(req.body);
+//         res.status(201).json({
+//             "statuscode": 201,
+//             "message": "User created"
+//         });
+//     } catch (error) {
+//         res.status(500).json({
+//             "statuscode": 500,
+//             "message": "Internal Server Error",
+//             "error": error.message
+//         });
+//     }
+// }
+
+export const createUser = async (req, res) => {
+    const { name, email, password, gender} = req.body;
+
     try {
-        await User.create(req.body);
+        // Cek exist data
+        const existingUser = await User.findOne({ where: { email } });
+        if (existingUser) {
+            return res.status(400).json({
+                "statuscode": 400,
+                "message": `Email ${req.body.email} already exists`
+            });
+        }
+
+        // Hash password
+        const salt = await bcrypt.genSalt(10);
+        const hashedPassword = await bcrypt.hash(password, salt);
+
+        const user = await User.create({
+            name,
+            email,
+            password: hashedPassword,
+            gender
+        });
+
         res.status(201).json({
             "statuscode": 201,
             "message": "User created"
@@ -69,9 +112,7 @@ export const createUser = async(req, res) => {
             "error": error.message
         });
     }
-}
-
-import crypto from "crypto";
+};
 
 export const updateUser = async (req, res) => {
     try {
@@ -81,13 +122,17 @@ export const updateUser = async (req, res) => {
             return res.status(404).json({
                 "statuscode": 404,
                 "message": "User not found",
-                "data": null
             });
         }
 
         // Jika ada perubahan password, enkripsi menggunakan MD5
+        // if (req.body.password) {
+        //     req.body.password = crypto.createHash('md5').update(req.body.password).digest('hex');
+        // }
+
         if (req.body.password) {
-            req.body.password = crypto.createHash('md5').update(req.body.password).digest('hex');
+            const salt = await bcrypt.genSalt(10);
+            req.body.password = await bcrypt.hash(req.body.password, salt);
         }
 
         // Lakukan update
@@ -101,7 +146,6 @@ export const updateUser = async (req, res) => {
             return res.status(400).json({
                 "statuscode": 400,
                 "message": "User not updated",
-                "data": null
             });
         }
 
